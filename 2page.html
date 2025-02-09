@@ -227,33 +227,54 @@
         }
     </style>
     <script>
-        function updateData() {
-            fetch('/data')
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('phValue').innerText = "pH: " + data.pH.toFixed(2);
-                document.getElementById('turbValue').innerText = "Turbidity: " + data.turbidity.toFixed(2) + " NTU";
-                document.getElementById('tdsValue').innerText = "TDS: " + data.tds.toFixed(2) + " ppm";
-                document.getElementById('conductivityValue').innerText = "Conductivity: " + data.conductivity.toFixed(2) + " μS/cm";
-                document.getElementById('doValue').innerText = "Dissolved Oxygen: " + data.do.toFixed(2) + " mg/L";
+        import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import org.json.JSONObject;
+import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
-                document.getElementById('phMeter').style.width = (data.pH / 14) * 100 + "%";
-                document.getElementById('turbMeter').style.width = (data.turbidity / 100) * 100 + "%";
-                document.getElementById('tdsMeter').style.width = (data.tds / 500) * 100 + "%";
-                document.getElementById('conductivityMeter').style.width = (data.conductivity / 2000) * 100 + "%";
-                document.getElementById('doMeter').style.width = (data.do / 10) * 100 + "%";
+@WebServlet("/data")
+public class FetchJsonData extends HttpServlet {
 
-                let reportText = "Water quality is within acceptable limits.";
-                if (data.pH < 6.5 || data.pH > 8.5) reportText = "⚠️ pH level is outside the safe range!";
-                if (data.turbidity > 100) reportText = "⚠️ Turbidity is too high, water quality is poor!";
-                document.getElementById('reportText').innerText = reportText;
-            });
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        try {
+            String url = "https://cdee-2409-4081-178c-a2be-1c3-225b-67c0-4c3.ngrok-free.app/data"; // Replace with your actual URL
+            HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+            conn.setRequestMethod("GET");
+
+            if (conn.getResponseCode() == 200) {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                StringBuilder jsonResponse = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    jsonResponse.append(line);
+                }
+                reader.close();
+
+                response.setContentType("application/json");
+                response.getWriter().write(jsonResponse.toString());
+
+            } else {
+                response.setStatus(conn.getResponseCode());
+                response.getWriter().write("{\"error\": \"Failed to fetch data\"}"); // Return error as JSON
+            }
+
+            conn.disconnect();
+
+        } catch (Exception e) {
+            response.setStatus(500); // Internal Server Error
+            response.getWriter().write("{\"error\": \"" + e.getMessage() + "\"}"); // Return error details as JSON
+            e.printStackTrace(); // Log the error on the server side
         }
-        setInterval(updateData, 2000);
-
-        function toggleSidebar() {
-            document.querySelector('.sidebar').classList.toggle('open');
-        }
+    }
+}
     </script>
 </head>
 <body>
